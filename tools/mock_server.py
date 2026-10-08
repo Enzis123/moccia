@@ -354,8 +354,8 @@ class App:
                     await self.settings_changed()
                 elif j.get("t") == "cmd" and self.sim.apply_cmd(j.get("c")):
                     print(f"cmd {j.get('c')}")
-                    if j.get("c") == "clear":
-                        await self.broadcast(self.msg("frames", self.sim.frames()))
+                    # Igual que el firmware: tras cualquier comando, frames + state inmediatos
+                    await self.broadcast(self.msg("frames", self.sim.frames()))
                     await self.broadcast(self.msg("state", self.sim.state()))
         finally:
             self.clients.discard(ws)

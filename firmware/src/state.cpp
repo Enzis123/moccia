@@ -35,10 +35,8 @@ uint32_t uptimeSeconds() { return (uint32_t)(esp_timer_get_time() / 1000000ULL);
 
 void stateSetPaused(bool paused) {
   StateGuard g;
-  if (g_state.paused != paused) {
-    g_state.paused = paused;
-    g_state.controlRev++;
-  }
+  g_state.paused = paused;
+  g_state.controlRev++;   // siempre: tras cualquier comando se difunden frames + state
 }
 
 void stateClearFrames() {

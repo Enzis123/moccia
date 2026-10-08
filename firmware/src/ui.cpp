@@ -380,7 +380,7 @@ static void drawLights(uint8_t l) {
   s->fillSprite(C_BG);
   s->fillRoundRect(0, 0, LIG_W, LIG_H, 12, C_CARD);
   text(s, "Luces", 14, 24, F_SMB, C_TEXT2, C_CARD);
-  static const char* const names[6] = {"Cortas", "Largas", "Izq.", "Dcha.", "Freno", "Motor"};
+  static const char* const names[6] = {"Cortas", "Largas", "Izq.", "Der.", "Freno", "Motor"};
   static const uint32_t colors[6] = {C_OK, C_ACCENT, C_OK, C_OK, C_ERR, C_WARN};
   for (int i = 0; i < 6; i++) {
     int col = i % 3, row = i / 3;

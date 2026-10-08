@@ -2,7 +2,9 @@ name: build
 
 on:
   push:
+    branches: [main]
   pull_request:
+  workflow_dispatch:
 
 jobs:
   firmware:
@@ -39,9 +41,21 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: pip install aiohttp playwright && python -m playwright install --with-deps chromium
+      - name: Install dependencies (aiohttp, Playwright + Chromium)
+        run: |
+          pip install aiohttp playwright
+          python -m playwright install --with-deps chromium
       - name: Smoke test web app against mock server
         run: |
-          python tools/mock_server.py --port 8080 &
-          sleep 3
+          python tools/mock_server.py --port 8080 > mock.log 2>&1 &
+          # esperar a que el mock responda (máx. 30 s)
+          for i in $(seq 1 60); do
+            curl -sf http://localhost:8080/api/state > /dev/null && break
+            sleep 0.5
+          done
+          curl -sf http://localhost:8080/api/state
+          echo
           python tools/web_smoke_test.py --url http://localhost:8080
+      - name: Mock server log
+        if: always()
+        run: cat mock.log || true

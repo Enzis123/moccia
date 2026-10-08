@@ -27,8 +27,24 @@ su cuenta.
 
 Barra superior común: título, pestañas, tiempo encendido e iconos de WiFi y CAN.
 
-**Modo demo:** si está activo, o si no hay tráfico en el bus, el ESP32 simula una conducción
-realista. Así se puede probar la app sin conectar el kit a un vehículo.
+**Modo demo:** si está activo, el ESP32 genera una conducción realista y la emite como tramas
+CAN simuladas (con los IDs de la tabla de abajo) que pasan por el mismo decodificador que las
+reales: el tablero, la tabla de tramas, tramas/s y las gráficas se mueven, y el bus aparece como
+**OK**. Así se puede probar la app sin conectar el kit a un vehículo.
+
+Con el modo demo **desactivado** y sin tráfico real (más de 2 s sin tramas), los valores del
+tablero se siguen simulando para que la pantalla no quede congelada, pero el bus aparece como
+**SIN TRÁFICO**, tramas/s es 0 y la tabla de tramas no cambia. En cuanto llegan tramas reales,
+el tablero muestra los valores decodificados del bus.
+
+**Monitor CAN:** la tabla guarda como máximo 12 IDs distintas, ordenadas por ID; si llega una
+nueva con la tabla llena, se sustituye la que lleva más tiempo sin verse. En pausa la tabla se
+congela (tramas/s y el tablero siguen actualizándose). "Limpiar" vacía la tabla en todas las
+pantallas a la vez.
+
+**Retroiluminación:** el hardware solo permite encenderla o apagarla (CH422G). Si se apaga desde
+Ajustes (en la pantalla o en la web), **un toque en la pantalla la vuelve a encender** (ese primer
+toque no pulsa ningún botón). También se puede encender desde la web.
 
 ---
 
@@ -50,6 +66,10 @@ USB nativo.
 - Conecta `CANH` y `CANL` del kit al bus (por ejemplo, pines 6 y 14 del conector OBD-II).
 - Comparte la masa (GND).
 - Si el kit está en un extremo del bus, activa la resistencia de terminación de 120 Ω.
+- El firmware **nunca transmite tramas** (no envía peticiones OBD-II: solo decodifica las
+  respuestas `0x7E8` que pida otro equipo). El controlador TWAI funciona en modo normal, así que
+  **sí confirma (ACK)** las tramas y genera tramas de error si el bitrate es incorrecto.
+  Configura el bitrate correcto en Ajustes **antes** de conectarlo a un vehículo.
 
 ### Señales decodificadas
 
@@ -68,14 +88,47 @@ Las señales vienen de IDs estándar de 11 bits. El modo demo usa estas mismas I
 ## Estructura del proyecto
 
 ```
-firmware/              Proyecto PlatformIO (framework Arduino)
+firmware/                 Proyecto PlatformIO (framework Arduino)
   platformio.ini
-  include/             Cabeceras y secrets.example.h
-  src/                 Código: pantalla, táctil, CH422G, CAN, simulador, WiFi, web
-  data/                App web (index.html, app.css, app.js) → LittleFS
-tools/mock_server.py   Servidor en PC que imita al ESP32, para probar la web sin hardware
-docs/SPEC.md           Especificación compartida firmware/web
+  include/                Cabeceras (*.h) y secrets.example.h
+  src/                    Código del firmware (ver "Arquitectura")
+  data/                   App web → LittleFS: index.html, app.css, app.js, manifest.json, icon.svg
+tools/mock_server.py      Servidor en PC que imita al ESP32, para probar la web sin hardware
+tools/web_smoke_test.py   Prueba automática de la web (Playwright) contra el mock o el ESP32
+docs/SPEC.md              Especificación compartida firmware/web
+.github/workflows/build.yml  Integración continua (ver "Verificación")
 ```
+
+---
+
+## Arquitectura del firmware
+
+| Módulo (`src/` + `include/`) | Función |
+|------------------------------|---------|
+| `main.cpp` | Arranque: carga ajustes, CH422G, pantalla, CAN y, en segundo plano, WiFi + servidor web |
+| `app_config.h` | Pines, temporización del LCD, direcciones I2C, colores y constantes |
+| `state.cpp/.h` | Estado compartido (datos del vehículo, tabla de tramas, historial de 120 s), protegido por un mutex |
+| `app_settings.cpp/.h` | Ajustes persistentes en NVS (bitrate, demo, retroiluminación, unidades) |
+| `ch422g.cpp/.h` | Expansor CH422G: resets de LCD y táctil, retroiluminación, USB_SEL = CAN |
+| `display.h` | Configuración LovyanGFX: panel RGB 800x480 + táctil GT911 |
+| `ui.cpp/.h` | Interfaz táctil: barra superior y las 4 páginas (dibujadas con sprites en PSRAM) |
+| `can_bus.cpp/.h` | Driver TWAI (cambio de bitrate, recuperación de BUS-OFF), decodificación, tramas/s, historial |
+| `simulator.cpp/.h` | Simulador de conducción que genera tramas CAN (modo demo) |
+| `wifi_net.cpp/.h` | WiFi STA con `secrets.h` (opcional), AP de respaldo y mDNS `moccia.local` |
+| `web.cpp/.h` | Servidor HTTP (LittleFS + API REST) y WebSocket `/ws` |
+
+Tareas FreeRTOS:
+- **loopTask** (núcleo 1): interfaz táctil. Es la única que usa LovyanGFX y el bus I2C
+  (táctil y CH422G).
+- **can** (núcleo 0): recepción TWAI, simulador, tramas/s e historial (1 muestra/s).
+- **web** (núcleo 0): difusión por WebSocket (estado 10 Hz, tramas 2 Hz, muestra 1 Hz,
+  sistema cada 5 s) y difusión inmediata cuando cambian los ajustes o se usa Pausar/Limpiar.
+- **async_tcp**: atiende HTTP y los mensajes WebSocket entrantes. Solo modifica el estado
+  compartido (con mutex) y los ajustes. La pantalla aplica los cambios (por ejemplo, la
+  retroiluminación) desde su propia tarea.
+
+Cualquier cambio, hecho con el táctil o desde la web, incrementa un contador de revisión. La
+tarea **web** lo detecta y lo difunde a todos los clientes.
 
 ---
 
@@ -121,6 +174,31 @@ python tools/mock_server.py --port 8080
 # abre http://localhost:8080
 ```
 El servidor de pruebas imita al ESP32: mismos endpoints, mismo WebSocket y datos simulados.
+Con el modo demo desactivado se comporta como un ESP32 sin tráfico: bus SIN TRÁFICO,
+0 tramas/s y tabla congelada.
+
+Prueba automática (abre dos navegadores y comprueba datos, pestañas, sincronización de ajustes
+y Pausar/Limpiar):
+```bash
+pip install playwright && python -m playwright install chromium
+python tools/web_smoke_test.py --url http://localhost:8080   # o la IP del ESP32
+```
+
+---
+
+## Verificación (CI)
+
+El workflow `.github/workflows/build.yml` se ejecuta en cada *pull request*, en cada *push* a
+`main` y a mano (*workflow_dispatch*). Tiene dos trabajos:
+- **firmware**: instala PlatformIO, compila el firmware (`pio run`) y genera la imagen LittleFS
+  de la web (`pio run -t buildfs`). Los `.bin` quedan como artefacto descargable
+  (`moccia-firmware`).
+- **web**: instala `aiohttp`, Playwright y Chromium (`python -m playwright install --with-deps
+  chromium`), arranca `tools/mock_server.py`, espera a que `/api/state` responda y ejecuta
+  `tools/web_smoke_test.py`.
+
+La CI no prueba el hardware real (pantalla, táctil, CAN). Para eso, sigue la sección de
+instalación y revisa las cuatro páginas en el kit.
 
 ---
 
@@ -153,6 +231,11 @@ El servidor de pruebas imita al ESP32: mismos endpoints, mismo WebSocket y datos
 
 Los ajustes se guardan en la memoria NVS y se mantienen tras reiniciar.
 
+La velocidad viaja siempre en km/h. Cada cliente la convierte a mph si el ajuste `units` es
+`mph`. `heap` y `psram` van en bytes y `rssi` en dBm. `history` contiene exactamente 120 valores,
+del más antiguo al más reciente. Tras cualquier `cmd`, el servidor difunde `frames` y `state` al
+momento. En pausa, `frames` se sigue enviando, pero con la tabla congelada.
+
 Detalle completo de cada campo: [`docs/SPEC.md`](docs/SPEC.md).
 
 ---
@@ -161,7 +244,7 @@ Detalle completo de cada campo: [`docs/SPEC.md`](docs/SPEC.md).
 
 | Problema | Solución |
 |----------|----------|
-| Pantalla en negro | Comprueba que la placa sea la variante de **7"**. El firmware enciende la retroiluminación con el CH422G al arrancar. |
+| Pantalla en negro | Si la retroiluminación se apagó desde Ajustes, toca la pantalla o actívala desde la web (se guarda en NVS). Comprueba también que la placa sea la variante de **7"**. |
 | No aparece el puerto serie | Usa el conector **UART**. El USB nativo se desactiva porque el CAN usa esos pines. |
 | CAN "SIN TRÁFICO" | Revisa el bitrate en Ajustes (normalmente 500k en vehículos), el cableado CANH/CANL y la terminación. |
 | CAN "BUS-OFF" | Bitrate incorrecto o bus sin terminar. El firmware se recupera solo. |

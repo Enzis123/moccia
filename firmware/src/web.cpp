@@ -4,6 +4,7 @@
 #include <ESPAsyncWebServer.h>
 #include <AsyncJson.h>
 #include <ArduinoJson.h>
+#include <string>
 #include "app_config.h"
 #include "state.h"
 #include "app_settings.h"
@@ -166,6 +167,13 @@ static void handleWsMessage(const char* txt, size_t len) {
   // La difusión de settings/state la hace la tarea webTask al ver cambiar las revisiones.
 }
 
+// Búfer de recepción por cliente (en client->_tempObject) para mensajes fragmentados.
+static constexpr size_t WS_RX_MAX = 1024;   // los mensajes del protocolo ocupan < 100 bytes
+struct WsRxBuf {
+  std::string buf;
+  bool overflow = false;
+};
+
 static void onWsEvent(AsyncWebSocket* server, AsyncWebSocketClient* client, AwsEventType type,
                       void* arg, uint8_t* data, size_t len) {
   switch (type) {
@@ -179,12 +187,27 @@ static void onWsEvent(AsyncWebSocket* server, AsyncWebSocketClient* client, AwsE
       break;
     case WS_EVT_DISCONNECT:
       Serial.printf("[WS] cliente #%u desconectado\n", (unsigned)client->id());
+      delete static_cast<WsRxBuf*>(client->_tempObject);
+      client->_tempObject = nullptr;
       break;
     case WS_EVT_DATA: {
       AwsFrameInfo* info = (AwsFrameInfo*)arg;
-      // Solo mensajes de texto completos en una única trama (los del protocolo son cortos)
-      if (info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT) {
+      if (info->message_opcode != WS_TEXT) break;
+      // Caso habitual: mensaje completo en una sola trama WS y un solo segmento TCP
+      if (info->final && info->num == 0 && info->index == 0 && info->len == len) {
         handleWsMessage((const char*)data, len);
+        break;
+      }
+      // Mensaje fragmentado (varias tramas WS) o trama partida en varios segmentos TCP: acumular
+      auto* rx = static_cast<WsRxBuf*>(client->_tempObject);
+      if (!rx) client->_tempObject = rx = new WsRxBuf();
+      if (info->num == 0 && info->index == 0) { rx->buf.clear(); rx->overflow = false; }
+      if (rx->buf.size() + len > WS_RX_MAX) rx->overflow = true;
+      if (!rx->overflow) rx->buf.append((const char*)data, len);
+      if (info->final && info->index + len == info->len) {
+        if (!rx->overflow) handleWsMessage(rx->buf.data(), rx->buf.size());
+        rx->buf.clear();
+        rx->overflow = false;
       }
       break;
     }
@@ -237,9 +260,9 @@ static void webTask(void*) {
         lastFrames = now;
         s_ws.textAll(buildMsg(Msg::Frames));
       }
-      if (sampleRev != seenSample) {
+      if (sampleRev != seenSample && canWrite) {   // si la cola está llena se reintenta en 10 ms
         seenSample = sampleRev;
-        if (canWrite) s_ws.textAll(buildMsg(Msg::Sample));
+        s_ws.textAll(buildMsg(Msg::Sample));
       }
       if (now - lastSys >= 5000) {
         lastSys = now;

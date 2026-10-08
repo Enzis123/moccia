@@ -157,7 +157,7 @@
     var h = '';
     (list || []).forEach(function (f) {
       h += '<tr><td>' + esc(f.id) + '</td><td>' + (f.dlc | 0) + '</td><td class="d">' + esc(f.data) +
-        '</td><td class="r">' + (f.count | 0) + '</td><td class="r">' + (f.period | 0) + '<span class="lg"> ms</span></td></tr>';
+        '</td><td class="r">' + (f.count | 0) + '</td><td class="r">' + ((f.count | 0) > 1 ? (f.period | 0) + '<span class="lg"> ms</span>' : '-') + '</td></tr>';
     });
     $('fBody').innerHTML = h;
     $('fEmpty').hidden = !!h;
