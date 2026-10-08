@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f1115">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>MocciaCAN</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div id="app" class="app">
+  <header class="top">
+    <div class="brand"><span class="logo" aria-hidden="true"></span>MocciaCAN</div>
+    <nav class="tabs" role="tablist">
+      <button role="tab" data-p="tablero" aria-selected="true">Tablero</button>
+      <button role="tab" data-p="can">CAN</button>
+      <button role="tab" data-p="graficas">Gráficas</button>
+      <button role="tab" data-p="ajustes">Ajustes</button>
+    </nav>
+    <div class="status">
+      <span id="uptime" class="mono" title="Tiempo encendido">--:--:--</span>
+      <svg id="icWifi" class="ic wifi" viewBox="0 0 24 24" role="img" aria-label="WiFi">
+        <title>WiFi</title>
+        <path class="b3" d="M2 8.5a15 15 0 0 1 20 0"/><path class="b2" d="M5.5 12a10 10 0 0 1 13 0"/>
+        <path class="b1" d="M9 15.5a5 5 0 0 1 6 0"/><circle cx="12" cy="19" r="1.6"/>
+      </svg>
+      <span id="icCan" class="canbadge" title="Bus CAN">CAN</span>
+      <span id="link" class="link" title="Conexión con el dispositivo"></span>
+    </div>
+  </header>
+  <div id="banner" class="banner" hidden>Sin conexión con el dispositivo · reintentando…</div>
+
+  <main>
+    <!-- ============ TABLERO ============ -->
+    <section id="p-tablero" class="page dash" role="tabpanel">
+      <div class="card gauge"><svg id="gSpeed" viewBox="0 0 200 200"></svg></div>
+      <div class="mid">
+        <div class="card gearcard">
+          <div class="lbl">Marcha</div>
+          <div id="gear" class="gear">-</div>
+        </div>
+        <div class="card lights" id="lights">
+          <div class="li" data-b="0" data-c="ok" title="Luces cortas"><svg viewBox="0 0 24 24"><path d="M13 5c4 0 7 3 7 7s-3 7-7 7z"/><path d="M10 7 3 9.5M10 11 3 13.5M10 15 3 17.5" class="ln"/></svg><span>Cortas</span></div>
+          <div class="li" data-b="1" data-c="acc" title="Luces largas"><svg viewBox="0 0 24 24"><path d="M13 5c4 0 7 3 7 7s-3 7-7 7z"/><path d="M10 7H3M10 10.3H3M10 13.7H3M10 17H3" class="ln"/></svg><span>Largas</span></div>
+          <div class="li" data-b="4" data-c="err" title="Freno de mano"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="6.5" class="ln"/><path d="M5 5.5a9.5 9.5 0 0 0 0 13M19 5.5a9.5 9.5 0 0 1 0 13" class="ln"/><text x="12" y="15.3" text-anchor="middle">P</text></svg><span>Freno</span></div>
+          <div class="li" data-b="2" data-c="ok" title="Intermitente izquierdo"><svg viewBox="0 0 24 24"><path d="M3 12 11 5v4h9v6h-9v4z"/></svg><span>Izq.</span></div>
+          <div class="li" data-b="3" data-c="ok" title="Intermitente derecho"><svg viewBox="0 0 24 24"><path d="M21 12 13 5v4H4v6h9v4z"/></svg><span>Der.</span></div>
+          <div class="li" data-b="5" data-c="warn" title="Check engine"><svg viewBox="0 0 24 24"><path d="M6 9h3V7h6v2h2l2 2h2v6h-2l-2 2H8l-2-2H4v-3H2v-2h2v-3h2z"/></svg><span>Motor</span></div>
+        </div>
+      </div>
+      <div class="card gauge"><svg id="gRpm" viewBox="0 0 200 200"></svg></div>
+      <div class="bars">
+        <div class="card bar" id="bTemp"><div class="lbl">Refrigerante</div><div class="val"><b>--</b><small>°C</small></div><div class="track"><i></i></div></div>
+        <div class="card bar" id="bFuel"><div class="lbl">Combustible</div><div class="val"><b>--</b><small>%</small></div><div class="track"><i></i></div></div>
+        <div class="card bar" id="bBatt"><div class="lbl">Batería</div><div class="val"><b>--</b><small>V</small></div><div class="track"><i></i></div></div>
+      </div>
+    </section>
+
+    <!-- ============ CAN ============ -->
+    <section id="p-can" class="page can" role="tabpanel" hidden>
+      <div class="stats">
+        <div class="card stat"><div class="lbl">Tramas/s</div><b id="cFps">--</b></div>
+        <div class="card stat"><div class="lbl">Estado bus</div><b id="cBus">--</b></div>
+        <div class="card stat"><div class="lbl">Bitrate</div><b id="cBit">--</b></div>
+        <div class="btns">
+          <button id="btnPause" class="btn" data-net>Pausar</button>
+          <button id="btnClear" class="btn ghost" data-net>Limpiar</button>
+        </div>
+      </div>
+      <div class="card tablewrap">
+        <table class="frames">
+          <thead><tr><th>ID</th><th>DLC</th><th>Datos</th><th class="r"><span class="lg">Contador</span><span class="sm">Cont.</span></th><th class="r"><span class="lg">Periodo</span><span class="sm">ms</span></th></tr></thead>
+          <tbody id="fBody"></tbody>
+        </table>
+        <div id="fEmpty" class="empty">Sin tramas</div>
+      </div>
+    </section>
+
+    <!-- ============ GRÁFICAS ============ -->
+    <section id="p-graficas" class="page charts" role="tabpanel" hidden>
+      <div class="card chart" data-k="speed"><div class="chead"><span class="lbl">Velocidad</span><b class="cv">--</b></div><canvas></canvas></div>
+      <div class="card chart" data-k="rpm"><div class="chead"><span class="lbl">RPM</span><b class="cv">--</b></div><canvas></canvas></div>
+      <div class="card chart" data-k="temp"><div class="chead"><span class="lbl">Temperatura</span><b class="cv">--</b></div><canvas></canvas></div>
+    </section>
+
+    <!-- ============ AJUSTES ============ -->
+    <section id="p-ajustes" class="page settings" role="tabpanel" hidden>
+      <div class="card">
+        <h2>Configuración</h2>
+        <div class="row"><span>Bitrate CAN</span>
+          <div class="seg" id="sBitrate" data-k="bitrate">
+            <button data-v="125000" data-net>125k</button><button data-v="250000" data-net>250k</button><button data-v="500000" data-net>500k</button><button data-v="1000000" data-net>1M</button>
+          </div>
+        </div>
+        <div class="row"><span>Modo demo</span><button class="sw" role="switch" aria-checked="false" data-k="demo" data-net aria-label="Modo demo"><i></i></button></div>
+        <div class="row"><span>Brillo pantalla</span><button class="sw" role="switch" aria-checked="false" data-k="backlight" data-net aria-label="Brillo pantalla"><i></i></button></div>
+        <div class="row"><span>Unidades</span>
+          <div class="seg" id="sUnits" data-k="units"><button data-v="kmh" data-net>km/h</button><button data-v="mph" data-net>mph</button></div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Sistema</h2>
+        <dl class="info">
+          <dt>IP</dt><dd id="iIp">--</dd>
+          <dt>Red (SSID)</dt><dd id="iSsid">--</dd>
+          <dt>RSSI</dt><dd id="iRssi">--</dd>
+          <dt>Heap libre</dt><dd id="iHeap">--</dd>
+          <dt>PSRAM libre</dt><dd id="iPsram">--</dd>
+          <dt>Uptime</dt><dd id="iUp">--</dd>
+          <dt>Firmware</dt><dd id="iVer">--</dd>
+          <dt>App web</dt><dd id="iLink">--</dd>
+        </dl>
+      </div>
+    </section>
+  </main>
+</div>
+<script src="app.js"></script>
+</body>
+</html>
