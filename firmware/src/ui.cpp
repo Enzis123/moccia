@@ -421,7 +421,7 @@ static void updateDash(const Snapshot& sn, bool force) {
     c_dash.spd = spd;
     char b[8];
     snprintf(b, sizeof(b), "%d", spd);
-    drawGauge(G_SPD_X, G_Y, speedDisp(sn.v.speed, mph), mph ? 150 : 240, mph ? 10 : 20, 2, 1, 0, b,
+    drawGauge(G_SPD_X, G_Y, speedDisp(sn.v.speed, mph), mph ? 160 : 240, 20, 2, 1, 0, b,
               speedUnit(mph), "Velocidad");
   }
   int rpm = ((sn.v.rpm + 12) / 25) * 25;   // resolución de 25 rpm para no redibujar en exceso
@@ -629,7 +629,7 @@ static void updateCharts(const Snapshot& sn, bool force) {
   const bool mph = sn.set.mph;
   snprintf(t, sizeof(t), "Velocidad (%s)", speedUnit(mph));
   snprintf(b, sizeof(b), "%.0f %s", sp[HISTORY_LEN - 1], speedUnit(mph));
-  drawChart(0, t, b, sp, mph ? 150 : 240, C_ACCENT, mph ? 50 : 80);
+  drawChart(0, t, b, sp, mph ? 160 : 240, C_ACCENT, mph ? 40 : 80);
   snprintf(b, sizeof(b), "%d rpm", ri[HISTORY_LEN - 1]);
   drawChart(1, "Revoluciones (rpm)", b, rp, 8000, C_OK, 2000);
   snprintf(b, sizeof(b), "%d °C", ti[HISTORY_LEN - 1]);
@@ -830,7 +830,7 @@ void uiBegin() {
 
   // pantalla de arranque
   text(&lcd, "MocciaCAN", LCD_W / 2, 230, F_LGB, C_ACCENT, C_BG, AL_CENTER);
-  text(&lcd, "Iniciando…", LCD_W / 2, 270, F_SM, C_TEXT2, C_BG, AL_CENTER);
+  text(&lcd, "Iniciando...", LCD_W / 2, 270, F_SM, C_TEXT2, C_BG, AL_CENTER);
   s_blApplied = settingsGet().backlight;
 }
 
