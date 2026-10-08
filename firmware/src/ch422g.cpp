@@ -1,7 +1,7 @@
 #include "ch422g.h"
 #include <Wire.h>
 #include <LovyanGFX.hpp>
-#include "config.h"
+#include "app_config.h"
 
 static uint8_t s_out = 0;          // copia del registro de salidas
 static bool s_useLgfx = false;

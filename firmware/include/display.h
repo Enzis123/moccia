@@ -4,7 +4,7 @@
 #include <LovyanGFX.hpp>
 #include <lgfx/v1/platforms/esp32s3/Panel_RGB.hpp>
 #include <lgfx/v1/platforms/esp32s3/Bus_RGB.hpp>
-#include "config.h"
+#include "app_config.h"
 
 class LGFX : public lgfx::LGFX_Device {
  public:

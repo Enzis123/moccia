@@ -1,6 +1,6 @@
 #include "can_bus.h"
 #include <driver/twai.h>
-#include "config.h"
+#include "app_config.h"
 #include "state.h"
 #include "simulator.h"
 
@@ -9,6 +9,8 @@ static volatile bool     s_driverOk = false;
 static uint32_t s_curBitrate = 500000;
 static uint32_t s_lastFrameMs = 0;      // última trama (real o simulada)
 static bool     s_haveFrame = false;
+static uint32_t s_lastRealMs = 0;       // última trama real del bus
+static bool     s_haveReal = false;
 static uint32_t s_fpsCount = 0;
 static bool     s_busOff = false;
 static TaskHandle_t s_task = nullptr;
@@ -123,9 +125,10 @@ static void updateTable(const CanFrame& f, uint32_t now) {
   g_state.framesRev++;
 }
 
-void canProcessFrame(const CanFrame& f, uint32_t nowMs) {
+void canProcessFrame(const CanFrame& f, uint32_t nowMs, bool valuesOnly) {
   StateGuard g;
   decode(f, g_state.v);
+  if (valuesOnly) return;
   if (!g_state.paused) updateTable(f, nowMs);
   s_fpsCount++;
   s_lastFrameMs = nowMs;
@@ -160,7 +163,10 @@ static void canTask(void*) {
             f.ext = m.extd;
             f.dlc = m.data_length_code > 8 ? 8 : m.data_length_code;
             memcpy(f.data, m.data, 8);
-            canProcessFrame(f, millis());
+            uint32_t t = millis();
+            s_lastRealMs = t;
+            s_haveReal = true;
+            canProcessFrame(f, t);
           }
         } while (++n < 64 && twai_receive(&m, 0) == ESP_OK);
       }
@@ -202,7 +208,11 @@ static void canTask(void*) {
       StateGuard g;
       demo = g_state.settings.demo;
     }
-    if (demo) simulatorTick(now);
+    if (demo) {
+      simulatorTick(now, false);          // demo: tramas simuladas completas
+    } else if (!s_haveReal || now - s_lastRealMs > 2000) {
+      simulatorTick(now, true);           // sin tráfico: el tablero sigue vivo, bus IDLE, 0 tramas/s
+    }
 
     // Estado del bus
     {

@@ -4,4 +4,6 @@
 #include <Arduino.h>
 
 void simulatorBegin();
-void simulatorTick(uint32_t nowMs);   // llamar con frecuencia (≈5 ms) desde la tarea CAN
+// Llamar con frecuencia (≈5 ms) desde la tarea CAN. valuesOnly: solo alimenta los valores
+// del tablero (no cuenta como tráfico ni entra en la tabla de tramas).
+void simulatorTick(uint32_t nowMs, bool valuesOnly);

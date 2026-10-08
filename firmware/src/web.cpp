@@ -4,10 +4,10 @@
 #include <ESPAsyncWebServer.h>
 #include <AsyncJson.h>
 #include <ArduinoJson.h>
-#include "config.h"
+#include "app_config.h"
 #include "state.h"
-#include "settings.h"
-#include "net.h"
+#include "app_settings.h"
+#include "wifi_net.h"
 
 static AsyncWebServer s_server(80);
 static AsyncWebSocket s_ws("/ws");
@@ -170,7 +170,7 @@ static void onWsEvent(AsyncWebSocket* server, AsyncWebSocketClient* client, AwsE
                       void* arg, uint8_t* data, size_t len) {
   switch (type) {
     case WS_EVT_CONNECT:
-      Serial.printf("[WS] cliente #%u conectado (%u en total)\n", client->id(), (unsigned)server->count());
+      Serial.printf("[WS] cliente #%u conectado (%u en total)\n", (unsigned)client->id(), (unsigned)server->count());
       client->text(buildMsg(Msg::Settings));
       client->text(buildMsg(Msg::Sys));
       client->text(buildMsg(Msg::History));
@@ -178,7 +178,7 @@ static void onWsEvent(AsyncWebSocket* server, AsyncWebSocketClient* client, AwsE
       client->text(buildMsg(Msg::Frames));
       break;
     case WS_EVT_DISCONNECT:
-      Serial.printf("[WS] cliente #%u desconectado\n", client->id());
+      Serial.printf("[WS] cliente #%u desconectado\n", (unsigned)client->id());
       break;
     case WS_EVT_DATA: {
       AwsFrameInfo* info = (AwsFrameInfo*)arg;
@@ -311,12 +311,12 @@ void webBegin() {
   post->setMethod(HTTP_POST);
   s_server.addHandler(post);
 
-  s_server.on("/", HTTP_GET, [](AsyncWebServerRequest* req) {
-    if (s_fsOk && LittleFS.exists("/index.html")) req->send(LittleFS, "/index.html", "text/html");
-    else req->send(200, "text/html", FALLBACK_HTML);
-  });
-
-  if (s_fsOk) s_server.serveStatic("/", LittleFS, "/").setDefaultFile("index.html").setCacheControl("no-cache");
+  if (s_fsOk && LittleFS.exists("/index.html")) {
+    // index.html, app.css, app.js, manifest.json, icon.svg...
+    s_server.serveStatic("/", LittleFS, "/").setDefaultFile("index.html").setCacheControl("no-cache");
+  } else {
+    s_server.on("/", HTTP_GET, [](AsyncWebServerRequest* req) { req->send(200, "text/html", FALLBACK_HTML); });
+  }
 
   s_server.onNotFound([](AsyncWebServerRequest* req) {
     if (req->method() == HTTP_OPTIONS) req->send(204);

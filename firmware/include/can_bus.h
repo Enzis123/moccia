@@ -16,7 +16,9 @@ void canBegin(uint32_t bitrate);
 void canRequestBitrate(uint32_t bitrate);
 
 // Procesa una trama (real o simulada): decodifica, actualiza tabla, cuenta tramas/s.
-void canProcessFrame(const CanFrame& f, uint32_t nowMs);
+// valuesOnly=true: solo actualiza los valores del tablero (simulación de fondo con demo
+// desactivado y sin tráfico real): no cuenta en tramas/s, no toca la tabla ni el estado del bus.
+void canProcessFrame(const CanFrame& f, uint32_t nowMs, bool valuesOnly = false);
 
 // true si el driver TWAI está instalado y arrancado
 bool canDriverOk();

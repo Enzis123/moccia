@@ -48,7 +48,7 @@ void newPhase(uint32_t now) {
   s.phaseEnd = now + (t == 0 ? urand(6000, 12000) : urand(10000, 25000));
   if (t > 0 && urand(0, 2) == 0) {  // intermitente al cambiar de tramo
     s.blinkSide = urand(1, 2);
-    s.blinkUntil = now + 3000;
+    s.blinkUntil = now + 4000;
   }
 }
 
@@ -112,7 +112,7 @@ void physics(uint32_t now, float dt) {
   // luces
   uint8_t l = 0x01;                               // cortas
   if (s.speed > 95) l |= 0x02;                    // largas en autopista
-  if (now < s.blinkUntil && ((now / 400) & 1)) l |= (s.blinkSide == 1 ? 0x04 : 0x08);
+  if (now < s.blinkUntil && ((now / 333) & 1)) l |= (s.blinkSide == 1 ? 0x04 : 0x08);
   if (s.gear == 0) l |= 0x10;                     // freno de mano en P
   if (s.temp > 99) l |= 0x20;                     // check engine si se calienta
   s.lights = l;
@@ -120,7 +120,7 @@ void physics(uint32_t now, float dt) {
 
 void put16(uint8_t* d, uint16_t v) { d[0] = v >> 8; d[1] = v & 0xFF; }
 
-void emit(uint32_t id, uint32_t now) {
+void emit(uint32_t id, uint32_t now, bool valuesOnly) {
   CanFrame f;
   f.id = id;
   f.ext = false;
@@ -184,7 +184,7 @@ void emit(uint32_t id, uint32_t now) {
       break;
     }
   }
-  canProcessFrame(f, now);
+  canProcessFrame(f, now, valuesOnly);
 }
 
 }  // namespace
@@ -197,7 +197,7 @@ void simulatorBegin() {
   for (auto& e : sched) e.next = now + e.next;
 }
 
-void simulatorTick(uint32_t now) {
+void simulatorTick(uint32_t now, bool valuesOnly) {
   float dt = (now - s.lastPhys) / 1000.0f;
   if (dt >= 0.02f) {
     if (dt > 0.5f) dt = 0.5f;
@@ -209,7 +209,7 @@ void simulatorTick(uint32_t now) {
       e.next += e.periodMs;
       if ((int32_t)(now - e.next) > 1000) e.next = now + e.periodMs;  // tras una pausa larga
       if (e.id == 0x100) s.rolling = (s.rolling + 1) & 0x0F;
-      emit(e.id, now);
+      emit(e.id, now, valuesOnly);
     }
   }
 }

@@ -1,7 +1,7 @@
 // Estado compartido de la aplicación, protegido por un mutex FreeRTOS.
 #pragma once
 #include <Arduino.h>
-#include "config.h"
+#include "app_config.h"
 
 enum class BusState : uint8_t { OK = 0, BUSOFF, IDLE };
 
