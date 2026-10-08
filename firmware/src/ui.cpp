@@ -429,7 +429,7 @@ static void updateDash(const Snapshot& sn, bool force) {
     c_dash.rpm = rpm;
     char b[8];
     snprintf(b, sizeof(b), "%d", ((sn.v.rpm + 5) / 10) * 10);
-    drawGauge(G_RPM_X, G_Y, rpm, 8000, 1000, 2, 1000, 6000, b, "rpm x1000", "Tacómetro");
+    drawGauge(G_RPM_X, G_Y, rpm, 8000, 1000, 2, 1000, 6500, b, "rpm x1000", "Tacómetro");
   }
   if (force || sn.v.gear != c_dash.gear) { c_dash.gear = sn.v.gear; drawGear(sn.v.gear); }
   if (force || sn.v.lights != c_dash.lights) { c_dash.lights = sn.v.lights; drawLights(sn.v.lights); }

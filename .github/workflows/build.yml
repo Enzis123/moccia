@@ -1,0 +1,47 @@
+name: build
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  firmware:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: pio-${{ hashFiles('firmware/platformio.ini') }}
+      - run: pip install platformio
+      - name: Build firmware
+        working-directory: firmware
+        run: pio run
+      - name: Build LittleFS image
+        working-directory: firmware
+        run: pio run -t buildfs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: moccia-firmware
+          path: |
+            firmware/.pio/build/*/firmware.bin
+            firmware/.pio/build/*/littlefs.bin
+            firmware/.pio/build/*/bootloader.bin
+            firmware/.pio/build/*/partitions.bin
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install aiohttp playwright && python -m playwright install --with-deps chromium
+      - name: Smoke test web app against mock server
+        run: |
+          python tools/mock_server.py --port 8080 &
+          sleep 3
+          python tools/web_smoke_test.py --url http://localhost:8080
