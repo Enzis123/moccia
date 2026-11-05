@@ -18,6 +18,83 @@ Todo el programa está en la carpeta `MocciaCAN/`:
 
 ---
 
+## Qué hace y cómo funciona
+
+### En pocas palabras
+
+MocciaCAN convierte el kit en un **panel de coche**. Escucha lo que se dicen los aparatos del coche por el **bus CAN** y lo enseña de dos formas a la vez:
+
+1. En la **pantalla táctil** del propio kit.
+2. En una **página web** que se abre desde el móvil o el PC, sin internet, conectándose directamente al WiFi del kit.
+
+Las dos muestran **lo mismo y al mismo tiempo**.
+
+### ¿Qué es el bus CAN?
+
+Dentro de un coche hay muchos "cerebros" electrónicos: el del motor, el de los frenos, el del tablero, etc. Se comunican por **dos cables** compartidos, como si todos hablaran en el mismo grupo de chat. Ese par de cables es el **bus CAN**.
+
+Cada mensaje se llama **trama** y lleva:
+- un **ID**, que dice de qué trata el mensaje (por ejemplo `0x100`);
+- hasta **8 bytes de datos**, que son los números en sí (por ejemplo, las revoluciones del motor).
+
+MocciaCAN se conecta a esos dos cables y **solo escucha**: lee todos los mensajes pero nunca envía nada, así que no puede molestar al coche.
+
+### Las piezas del sistema
+
+```
+   Coche (bus CAN)                    Kit ESP32-S3                      Móvil / PC
+  ┌──────────────┐   2 cables    ┌─────────────────────────┐   WiFi   ┌──────────────┐
+  │ motor, ABS,  │ ────────────► │ 1. Lee las tramas CAN   │ ───────► │  Navegador   │
+  │ tablero...   │  CANH / CANL  │ 2. Saca los valores     │          │  192.168.4.1 │
+  └──────────────┘               │ 3. Los pinta en pantalla│ ◄─────── │ (botón demo) │
+                                 │ 4. Sirve la página web  │          └──────────────┘
+                                 └─────────────────────────┘
+```
+
+El **ESP32-S3** es el chip del kit: un microcontrolador con WiFi incluido. El programa repite estos pasos sin parar, muchas veces por segundo:
+
+| Paso | Qué hace | Cada cuánto |
+|------|----------|-------------|
+| 1. **Leer el CAN** | Recoge las tramas que han llegado por los cables | Constantemente |
+| 2. **Interpretar** | Si la trama es una conocida (ID `0x100`, `0x101` o `0x102`), saca de ella la velocidad, las rpm, la temperatura o la batería. Además la apunta en la tabla de la página CAN | Con cada trama |
+| 3. **Mirar el táctil** | Comprueba si has tocado una pestaña o el botón de demo | Cada 30 ms |
+| 4. **Dibujar** | Actualiza los números de la página que estás viendo | Cada 250 ms |
+| 5. **Atender la web** | Responde al navegador con los datos actuales | Cuando el navegador pregunta |
+
+### Cómo se mantienen iguales la pantalla y la web
+
+El kit guarda **una sola copia** de los datos (velocidad, rpm, tramas…). Tanto la pantalla como la web leen de esa misma copia, por eso siempre coinciden:
+
+- La **pantalla** se redibuja ella sola cada 250 ms.
+- La **página web** pregunta al kit cada medio segundo "¿qué datos tienes?" (en la dirección `/datos`). El kit le contesta con los valores actuales y la página los muestra.
+- Si pulsas **Modo demo** en la web, el navegador se lo dice al kit (en `/demo`). El kit cambia el modo y, como la pantalla lee de la misma copia, también cambia en la pantalla. Y al revés: si lo cambias tocando la pantalla, la web lo verá en su siguiente pregunta.
+
+La página web **va guardada dentro del propio programa** (archivo `pagina_web.h`), así que no hace falta internet ni grabar nada aparte: el kit es a la vez el aparato y el servidor web.
+
+### El modo demo
+
+Sin un coche conectado no habría nada que ver, así que el **modo demo** se inventa un coche circulando:
+- la velocidad sube y baja suavemente entre 10 y 110 km/h;
+- las revoluciones siguen a la velocidad;
+- el motor se calienta poco a poco hasta 90 °C;
+- la batería oscila alrededor de 13,9 V.
+
+Lo interesante es que el modo demo **fabrica tramas CAN de verdad** (con las IDs `0x100`, `0x101` y `0x102`) y las mete por el mismo camino que las del coche real. Así, lo que ves en demo es exactamente cómo se vería con un coche que enviara esos mensajes. Al quitar el modo demo, el kit pasa a mostrar solo lo que llegue por los cables.
+
+### Las 3 páginas
+
+| Página | Qué enseña | Para qué sirve |
+|--------|------------|----------------|
+| **Tablero** | Velocidad, revoluciones, temperatura y batería, con un número grande y una barra | Ver de un vistazo el estado del coche |
+| **CAN** | Una tabla con los últimos 8 tipos de mensaje recibidos: su ID, cuántos bytes trae, los datos en hexadecimal y cuántas veces ha llegado. Arriba, cuántos mensajes llegan por segundo y el total | Ver qué pasa por el bus aunque el kit no entienda los mensajes; útil para investigar un coche |
+| **Ajustes** | Botón de modo demo, nombre y clave del WiFi, dirección web, versión y tiempo encendido | Configurar y saber cómo conectarse |
+
+### Resumen para explicarlo en una frase
+
+> "Es un panel táctil que escucha la red interna del coche (el bus CAN), muestra la velocidad, las revoluciones, la temperatura y la batería, y además crea su propio WiFi para que puedas ver lo mismo en el móvil. Tiene un modo demo que simula un coche para enseñarlo sin tener uno."
+
+---
+
 ## Cómo grabarlo (Arduino IDE)
 
 ### 1. Prepara el Arduino IDE (solo la primera vez)
