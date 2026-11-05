@@ -268,16 +268,16 @@ void dibujarBarraSuperior() {
 }
 
 // --- Tablero: 4 tarjetas ---
-const int TX[4] = { 20, 410, 20, 410 };
-const int TY[4] = { 75, 75, 280, 280 };
+const int TARJ_X[4] = { 20, 410, 20, 410 };
+const int TARJ_Y[4] = { 75, 75, 280, 280 };
 
 void dibujarTableroFijo() {
   const char* titulos[4] = { "Velocidad", "Revoluciones", "Temperatura", "Bateria" };
   const char* unidades[4] = { "km/h", "rpm", "grados C", "voltios" };
   for (int i = 0; i < 4; i++) {
-    lcd.fillRoundRect(TX[i], TY[i], 370, 190, 14, C_TARJETA);
-    texto(titulos[i], TX[i] + 20, TY[i] + 12, 250, 30, &fonts::FreeSansBold12pt7b, C_GRIS, C_TARJETA, false);
-    texto(unidades[i], TX[i] + 250, TY[i] + 12, 100, 30, &fonts::FreeSans12pt7b, C_GRIS, C_TARJETA, false);
+    lcd.fillRoundRect(TARJ_X[i], TARJ_Y[i], 370, 190, 14, C_TARJETA);
+    texto(titulos[i], TARJ_X[i] + 20, TARJ_Y[i] + 12, 250, 30, &fonts::FreeSansBold12pt7b, C_GRIS, C_TARJETA, false);
+    texto(unidades[i], TARJ_X[i] + 250, TARJ_Y[i] + 12, 100, 30, &fonts::FreeSans12pt7b, C_GRIS, C_TARJETA, false);
   }
 }
 
@@ -285,8 +285,8 @@ void dibujarTableroValores() {
   String valores[4] = { String((int)velocidad), String(rpm), String(temperatura), String(bateria, 1) };
   float fracciones[4] = { velocidad / 240, rpm / 8000.0f, temperatura / 120.0f, (bateria - 11) / 4 };
   for (int i = 0; i < 4; i++) {
-    texto(valores[i], TX[i] + 20, TY[i] + 50, 330, 100, &fonts::DejaVu72, C_TEXTO, C_TARJETA, true);
-    barra(TX[i] + 20, TY[i] + 160, 330, fracciones[i]);
+    texto(valores[i], TARJ_X[i] + 20, TARJ_Y[i] + 50, 330, 100, &fonts::DejaVu72, C_TEXTO, C_TARJETA, true);
+    barra(TARJ_X[i] + 20, TARJ_Y[i] + 160, 330, fracciones[i]);
   }
 }
 
